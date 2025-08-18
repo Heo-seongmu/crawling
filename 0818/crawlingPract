@@ -1,0 +1,107 @@
+package hsm.bootproject.Crawling.service;
+
+import java.io.IOException;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+import org.springframework.stereotype.Service;
+
+@Service
+public class jsoupService {
+
+	public void oliveYoung() {
+		System.out.println("oliveYoung");
+		//올리브영 랭킹 페이지의 html 문서 가져오기
+		//connect(URL)
+		String connectUrl="http://192.168.0.190:8085/";
+		try {
+			Document docs = Jsoup.connect(connectUrl).get();
+			//syso(docs)
+			//수집할 요소 선택
+			// 페이지에 표시되는 모든 영화 제목 수집
+			// 요소의 클래스가 movie인 Elements 선택
+			Elements movieEls = docs.select(".movie");
+			System.out.println(movieEls.size()); // 클래스가 movie인 요소 수
+			for(Element movieEl : movieEls) { //movieEl 클래스가 movie인 요소
+				// 제목을 나타내는 요소 선택
+				Element titleEl = movieEl.select(".card-body .card-title a").first();
+				String movieTitle = titleEl.text();
+				
+				// 포스터 이미지를 나타내는 태그를 선택
+				Element posterEl = movieEl.select("img").first();
+				String moviePoster = posterEl.attr("src");
+				
+				System.out.println("제목 : " + movieTitle);
+				System.out.println("포스터 : " + moviePoster);
+			}
+			
+		} catch (IOException e) {
+			
+			e.printStackTrace();
+		}
+		
+	}
+
+	public void wiki() throws IOException {
+		Document doc = Jsoup.connect("https://en.wikipedia.org/").get(); // get방식
+		System.out.println(doc.title());
+		Elements newsHeadlines = doc.select("#mp-itn b a");
+		for (Element headline : newsHeadlines) {
+		   System.out.println(headline.attr("title"));
+		   System.out.println(headline.attr("href"));
+		}
+		
+	}
+
+	public void jsoupBooksToScrape() throws IOException {
+		String url = "https://books.toscrape.com/";
+		// Jsoup으로 Document 받아오기
+		Document doc = Jsoup.connect(url).get();
+		//System.out.println("접속된 페이지의 html 문서 : " + doc);
+		//#default > div > div > div > div > section > div:nth-child(2) > ol
+		Elements bookList = doc.select("#default > div > div > div > div > section > div:nth-child(2) > ol li");
+		System.out.println(bookList.size());
+		for(Element book : bookList) {
+			// 책의 상세 페이지 url
+			String detailURL = book.select("article > h3 > a").first().attr("abs:href");
+			System.out.println(detailURL);
+			// 상세페이지 문서 조회
+			Document detailDoc = Jsoup.connect(detailURL).get(); // 책의 상세 페이지 문서
+			String bookTitle = detailDoc.select("#content_inner > article > div.row > div.col-sm-6.product_main > h1").text();
+			System.out.println("상세페이지 책 제목 : "+bookTitle);
+			// #content_inner > article > p
+			String bookDescription_detail = detailDoc.select("#content_inner > article > p").text();
+			System.out.println("상세페이지 책 설명 : " + bookDescription_detail);
+			
+			Element starRatingEl = detailDoc.select("#content_inner > article > div.row > div.col-sm-6.product_main > p.star-rating").first();
+			String starRating = "0";
+			
+			if(starRatingEl.hasClass("One")) {
+				starRating = "1";
+			}else if(starRatingEl.hasClass("Two")) {
+				starRating = "2";
+			}else if(starRatingEl.hasClass("Three")) {
+				starRating = "3";
+			}else if(starRatingEl.hasClass("Four")) {
+				starRating = "4";
+			}else {
+				starRating = "5";
+			}
+			System.out.println("별점 : " + starRating);
+			/*
+			 * article > h3 > a
+			 Element book : <li>
+			 * String bookTitle = book.select("article > h3 > a").first().attr("title");
+			 * System.out.println(bookTitle); String bookImg =
+			 * book.select("article > div.image_container > a > img").attr("abs:src");
+			 * System.out.println(bookImg); String bookPrice =
+			 * book.select("article > div.product_price > p.price_color").text();
+			 * System.out.println(bookPrice);
+			 */
+		
+		}
+	}
+
+}
