@@ -1,0 +1,11 @@
+크롤링하고 싶은 페이지의 url을 가져온 다음에
+
+jsoup로 문서화한다
+
+수집할 요소를 클래스인 요소를 이용해서 또는 아이디 요소를 이용해서 수집한다,
+
+수집하고 추출하고 싶은 요소를 선택한다.
+
+기본적으로 Element 요소에 select를 한다면 .first(), Elements 에는 select 가능
+
+hasClass는 true, false를 가려내는 문법
