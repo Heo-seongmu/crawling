@@ -1,0 +1,118 @@
+package hsm.bootproject.crawlingProject.service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import hsm.bootproject.crawlingProject.domain.Scrape;
+import hsm.bootproject.crawlingProject.dto.ScrapeDto;
+import hsm.bootproject.crawlingProject.repository.JsoupRepository;
+
+@Service
+public class NewsService {
+	
+	@Autowired
+	private JsoupService jsoupService;
+	
+	@Autowired
+	private JsoupRepository jsoupRepository;
+	
+	 public void findNewList() {
+		
+		
+		
+	}
+	 
+	 // 뉴스 수집 기능
+	 public int scrapeNews(String platform, String category) {
+		// 네이버 뉴스 카테고리 하나를 선정
+			// 뉴스 목록 수집
+			List<ScrapeDto> scrapeDtoList = jsoupService.scrapeNaverNew(category); 
+			List<Scrape> scrapeList = new ArrayList<>();
+			// DTO >> Entity 변환
+			for(ScrapeDto dto : scrapeDtoList) {
+				scrapeList.add(new Scrape(dto));
+				
+			}
+			// Entity를 repository에 save
+			int count = 0; // 새로 save된 기사 수를 저장할 변수
+			for (Scrape en : scrapeList) {
+				Scrape checkEntity = jsoupRepository.findByDetailUrl(en.getDetailUrl());
+				if(checkEntity == null) {
+					jsoupRepository.save(en);
+					count ++;
+				}
+			}
+			return count;
+	 }
+	
+}
+===============================================================================
+package hsm.bootproject.crawlingProject.service;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+import org.springframework.stereotype.Service;
+
+import hsm.bootproject.crawlingProject.dto.ScrapeDto;
+
+@Service
+public class JsoupService {
+
+	public void JsoupSample() throws IOException {
+
+		Document doc = Jsoup.connect("https://en.wikipedia.org/").get();
+		System.out.println(doc.title());
+		Elements newsHeadlines = doc.select("#mp-itn b a");
+		for (Element headline : newsHeadlines) {
+			System.out.println(headline.attr("title"));
+			System.out.println(headline.absUrl("href"));
+		}
+	}
+
+	public List<ScrapeDto> scrapeNaverNew(String category) {
+		List<ScrapeDto> scrapeDtoList = new ArrayList<>();
+		// 1. 수집할 페이지 선정
+		String url = "https://news.naver.com/section/105";
+		try {
+			// 2. URL 요청 >> HTML 문서 응답
+			Document doc = Jsoup.connect(url).get();
+			// 3. 수집할 데이터가 있는 요소 선택
+			// 선택자 : #_SECTION_HEADLINE_LIST_5ofku
+			// #newsct > div.section_component.as_section_headline._PERSIST_CONTENT > div.section_article.as_headline._TEMPLATE
+			
+			//Element headLineUl = doc.select("#newsct").first();
+			
+			Elements headLineList = doc.select("li.sa_item"); // <li>
+			for(Element headLine : headLineList) {
+				ScrapeDto dto = new ScrapeDto();
+				// 4. 선택한 요소로부터 데이터 수집
+				// 수집 항목이 텍스트이면 text()
+				// 수집 항목이 속성값이먄 attr()
+				String title = headLine.select("strong.sa_text_strong").text();
+				dto.setTitle(title);
+				//System.out.println(headLine.select(" div > div > div.sa_thumb > div > a > img"));
+				String imgUrl = headLine.select(" div > div > div.sa_thumb > div > a > img").attr("data-src");
+				dto.setImgUrl(imgUrl);
+				
+				String detailUrl = headLine.select("div > div > div.sa_text > a").attr("abs:href");
+				dto.setDetailUrl(detailUrl);
+				scrapeDtoList.add(dto);
+				
+			}
+			
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return scrapeDtoList;
+	}
+
+}
