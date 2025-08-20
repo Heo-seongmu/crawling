@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+
+<link
+	href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css"
+	rel="stylesheet"
+	integrity="sha384-4Q6Gf2aSP4eDXB8Miphtr37CMZZQ5oXLH2yaXMJ2w8e2ZtHTl7GptT4jmndRuHDT"
+	crossorigin="anonymous" />
+<script
+	src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"
+	integrity="sha384-j1CDi7MgGQ12Z7Qab0qlWQ/Qqz24Gc6BM0thvEMVjHnfYGF0rmFCozFSxQBxwHKO"
+	crossorigin="anonymous"></script>
+
+<script
+	src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+</head>
+<body>
+	<h1 class="fw-bold">뉴스 스크랩</h1>
+	<select id="CategoryValue">
+		<option value="100">정치</option>
+		<option value="101">경제</option>
+		<option value="102">사회</option>
+		<option value="103">생활/문화</option>
+		<option value="105">IT/과학</option>
+		<option value="104">세계</option>
+	</select>
+	<button class="btn btn-primary" id="scrapeNewsBtn">뉴스 수집</button>
+	<button class="btn btn-success" onclick="news()">뉴스 조회</button>
+	<hr>
+	<table>
+		<thead>
+			<tr>
+				<th>카테고리</th>
+				<th>기사제목</th>
+			</tr>
+		</thead>
+		<tbody id="tbody">
+
+		</tbody>
+	</table>
+
+	<!-- 뉴스 수집 완료 알림(토스트) -->
+	<div class="toast-container position-fixed top-0 end-0 p-3">
+		<div id="scrapeNewsToast" class="toast" role="alert"
+			aria-live="assertive" aria-atomic="true">
+			<div class="toast-header">
+				<strong class="me-auto">투애니원</strong> <small>now</small>
+				<button type="button" class="btn-close" data-bs-dismiss="toast"
+					aria-label="Close"></button>
+			</div>
+			<div class="toast-body" id="count"></div>
+		</div>
+	</div>
+
+
+	<script type="text/javascript">
+		// 뉴스 수접 버튼 선택
+		const scrapeNewsBtn = document.getElementById("scrapeNewsBtn");
+		// 뉴스 수집 알림 toast 선택
+		const scrapeNewsToast = document.getElementById("scrapeNewsToast");
+		
+		const toastBootstrap = bootstrap.Toast.getOrCreateInstance(scrapeNewsToast)
+		
+		const categorySelect = document.getElementById("CategoryValue");
+			// 뉴스 수집 버튼 클릭 이벤트
+		scrapeNewsBtn.addEventListener('click', function(){
+			// 카테고리 선택 값
+			const CategoryValue = categorySelect.value;
+			const countEl = document.getElementById("count");
+			// ajax로 선택한 카테고리의 뉴스 수집 요청
+			$.ajax({
+				url : "/scrapeNews",
+				type : "get",
+				data : {"sectionNumber" : CategoryValue},
+				success : function(response){
+				countEl.innerHTML = "";
+				// ajax 응답 완료 (수집된 뉴스 기사 수로 알림(toast) 실행)
+				countEl.innerHTML = `새 뉴스가 ${response}개 수집되었습니다` ;
+				toastBootstrap.show()
+					
+				}
+			});
+		});
+		
+		function news(){
+			const CategoryValue = document.getElementById("CategoryValue").value;
+			const tbodyEl = document.getElementById("tbody");
+			let count = 1;
+			const categoryName = categorySelect.options[categorySelect.selectedIndex].text;
+			const countEl = document.getElementById("count");
+			tbodyEl.innerHTML = "";
+			countEl.innerHTML = "";
+			$.ajax({
+				url : "/searchNews",
+				type : "get",
+				data : {"sectionNumber" : CategoryValue},
+				dataType : "json",
+				success : function(res){
+					if(res.length == 0){
+						countEl.innerHTML = `수집된 뉴스가 없습니다` ;
+						toastBootstrap.show();
+						return;
+					}
+					for(let news of res){
+					tbody.innerHTML += `<tr>
+						<td>${count}</td>
+						<td>${categoryName}</td>
+						<td><a target="_blank" href="${news.detailUrl}">${news.title}</a></td>
+					</tr>`;
+					count++;
+					
+				}	
+				},
+			});
+		}
+	</script>
+</body>
+</html>
+============================================================================================================
+
+package hsm.bootproject.crawlingProject.service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import hsm.bootproject.crawlingProject.domain.Scrape;
+import hsm.bootproject.crawlingProject.dto.ScrapeDto;
+import hsm.bootproject.crawlingProject.repository.JsoupRepository;
+
+@Service
+public class NewsService {
+	
+	@Autowired
+	private JsoupService jsoupService;
+	
+	@Autowired
+	private JsoupRepository jsoupRepository;
+	
+	 public List<ScrapeDto> findNewList(String sectionNumber) {
+		 List<Scrape> scrapeList = jsoupRepository.findBySection(sectionNumber); 
+		 List<ScrapeDto> scrapeDtoList = new ArrayList<>();
+		 
+		
+		 for(Scrape scrape : scrapeList) {
+			 scrapeDtoList.add(new ScrapeDto(scrape));
+				
+			}
+		
+		return scrapeDtoList;
+	}
+	 
+	 // 뉴스 수집 기능
+	 public int scrapeNews(String sectionNumber) {
+		// 네이버 뉴스 카테고리 하나를 선정
+			// 뉴스 목록 수집
+			List<ScrapeDto> scrapeDtoList = jsoupService.scrapeNaverNew(sectionNumber); 
+			List<Scrape> scrapeList = new ArrayList<>();
+			// DTO >> Entity 변환
+			for(ScrapeDto dto : scrapeDtoList) {
+				scrapeList.add(new Scrape(dto));
+				
+			}
+			// Entity를 repository에 save
+			int count = 0; // 새로 save된 기사 수를 저장할 변수
+			for (Scrape en : scrapeList) {
+				Scrape checkEntity = jsoupRepository.findByDetailUrl(en.getDetailUrl());
+				if(checkEntity == null) {
+					jsoupRepository.save(en);
+					count ++;
+				}
+			}
+			return count;
+	 }
+
+	
+}
+
+
+===============================================================================================
+package hsm.bootproject.crawlingProject.service;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import hsm.bootproject.crawlingProject.dto.ScrapeDto;
+import hsm.bootproject.crawlingProject.repository.JsoupRepository;
+
+@Service
+public class JsoupService {
+
+	@Autowired
+	private JsoupRepository jsoupRepository;
+
+	public void JsoupSample() throws IOException {
+
+		Document doc = Jsoup.connect("https://en.wikipedia.org/").get();
+		System.out.println(doc.title());
+		Elements newsHeadlines = doc.select("#mp-itn b a");
+		for (Element headline : newsHeadlines) {
+			System.out.println(headline.attr("title"));
+			System.out.println(headline.absUrl("href"));
+		}
+	}
+
+	public List<ScrapeDto> scrapeNaverNew(String sectionNumber) {
+		List<ScrapeDto> scrapeDtoList = new ArrayList<>();
+		// 1. 수집할 페이지 선정
+		String url = "https://news.naver.com/section/" + sectionNumber;
+		try {
+			// 2. URL 요청 >> HTML 문서 응답
+			Document doc = Jsoup.connect(url).get();
+			// 3. 상세 페이지 URL만 List에 저장		
+			List<String> detailUrlList = new ArrayList<>();
+			
+			Elements headLineList = doc.select("li.sa_item"); // <li>
+			for(Element headLine : headLineList) {
+				// 상세 페이지 URL
+				String detailUrl = headLine.select("div > div > div.sa_text > a").attr("abs:href");
+				detailUrlList.add(detailUrl);
+			}
+			// 4. 중복되지 않은 상세 페이지 URL 만 선별
+			// Repository에서 저장된 detailUrl 목록을 조회
+			List<String> savedList = jsoupRepository.findAlldetailUrl();
+			detailUrlList.removeAll(savedList);
+			
+			// 5. 선별된 URL로 상세페이지 요청 >> 데이토 수집
+			for(String durl : detailUrlList ) {
+				Document detailDoc = Jsoup.connect(durl).get();
+				String title = detailDoc.select("#title_area").text();
+				
+				
+				String registDate = detailDoc.select("#ct > div.media_end_head.go_trans > div.media_end_head_info.nv_notrans > div.media_end_head_info_datestamp > div > span").text();
+				
+				String content = detailDoc.select("#dic_area").text();
+			
+				
+				// https://n.news.naver.com/mnews/article/023/0003924129
+				String[] parts = durl.split("/");
+				String publisherNumber = parts[5];
+				
+				//System.out.println("신문사 번호 : "+publisherNumber);
+				
+				ScrapeDto dto = new ScrapeDto();
+				dto.setSection(sectionNumber);
+				dto.setTitle(title);
+				dto.setDetailUrl(durl);
+				dto.setRegistDate(registDate);
+				//dto.setContent(content);
+				scrapeDtoList.add(dto);
+			}
+			
+			
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return scrapeDtoList;
+	}
+
+}
+
+
